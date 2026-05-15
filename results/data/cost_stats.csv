@@ -1,0 +1,3 @@
+cost_function,min_cost,max_cost,avg_cost,total_cost
+random,1,10,5.52317028319235,60070
+degree,1,52,3.9689223979404193,43166
