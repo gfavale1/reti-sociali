@@ -26,3 +26,16 @@ def get_degree_cost(G):
         u: math.ceil(G.degree(u) / 2)
         for u in G.nodes()
     }
+
+def get_sublinear_degree_cost(G):
+    """
+    Sublinear Degree Cost:
+    c(u) = 1 + ceil(log2(1 + d(u)))
+
+    Praticamente mi penalizza i nodi ad alto grado, ma in modo più leggero rispetto
+    alla Degree Cost classica della prof
+    """
+    return {
+        node: 1 + math.ceil(math.log2(1 + G.degree(node)))
+        for node in G.nodes()
+    }

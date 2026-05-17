@@ -1,9 +1,5 @@
 import math
-
-
-# ---------------------------------------------------------
-# FUNZIONI DI SUPPORTO
-# ---------------------------------------------------------
+from collections import deque
 
 def compute_thresholds(G):
     """
@@ -75,11 +71,6 @@ def ratio_gain_cost(gain, cost):
 
     return gain / cost
 
-
-# ---------------------------------------------------------
-# ALGORITMO 1: COST-SEEDS-GREEDY
-# ---------------------------------------------------------
-
 def algorithm_1_greedy(G, k, costs, potential_type="f1"):
     """
     Implementazione dell'Algorithm 1 delle slide: Cost-Seeds-Greedy.
@@ -140,11 +131,6 @@ def algorithm_1_greedy(G, k, costs, potential_type="f1"):
             return S_p
 
     return S_d
-
-
-# ---------------------------------------------------------
-# ALGORITMO 2: WTSS
-# ---------------------------------------------------------
 
 def algorithm_2_wtss(G, k, costs):
     """
@@ -240,3 +226,193 @@ def algorithm_2_wtss(G, k, costs):
         U.remove(v)
 
     return S
+
+def algorithm_3_threshold_deficit_greedy(G, costs, budget, return_info=False):
+    """
+    Threshold-Deficit Greedy.
+
+    Euristica greedy per il modello Cost Majority Cascade.
+
+    Idea generale:
+    - ogni nodo v ha una soglia majority tau(v) = ceil(d(v) / 2);
+    - ogni nodo v ha un deficit def(v), cioè il numero di vicini attivi
+      che mancano per raggiungere la soglia;
+    - a ogni iterazione scegliamo come seed il nodo che offre il miglior
+      beneficio stimato rispetto al costo.
+
+    Il beneficio stimato di un nodo u è:
+
+        score(u) = 1 + somma_{v vicino di u, v non attivo} 1 / def(v)
+
+    Il termine 1 rappresenta il fatto che, scegliendo u come seed,
+    u diventa sicuramente attivo.
+
+    Il termine 1 / def(v) dà più peso ai vicini che sono vicini
+    all'attivazione. Per esempio:
+    - se def(v) = 1, basta un solo vicino attivo per attivare v;
+    - se def(v) = 4, v è ancora lontano dall'attivazione.
+
+    Parameters
+    ----------
+    G : networkx.Graph
+        Grafo non orientato.
+    costs : dict
+        Dizionario dei costi: costs[u] = costo del nodo u.
+    budget : int or float
+        Budget massimo disponibile.
+    return_info : bool
+        Se True, restituisce anche informazioni aggiuntive utili
+        per debug/analisi.
+
+    Returns
+    -------
+    set
+        Seed set selezionato.
+    """
+
+    # Verifichiamo che ogni nodo del grafo abbia un costo associato.
+    missing_costs = [u for u in G.nodes() if u not in costs]
+    if missing_costs:
+        raise ValueError(
+            f"Mancano i costi per {len(missing_costs)} nodi. "
+            f"Esempio nodo senza costo: {missing_costs[0]}"
+        )
+
+    # I costi devono essere positivi, perché l'algoritmo usa score / costo.
+    for u in G.nodes():
+        if costs[u] <= 0:
+            raise ValueError(f"Il nodo {u} ha costo non positivo: {costs[u]}")
+
+    # Seed set finale che verrà restituito.
+    seeds = set()
+
+    # Costo totale dei seed scelti fino a questo momento.
+    current_cost = 0
+
+    # Soglia majority di ogni nodo:
+    # tau(v) = ceil(d(v) / 2)
+    threshold = {
+        v: math.ceil(G.degree(v) / 2)
+        for v in G.nodes()
+    }
+
+    # Deficit iniziale:
+    # all'inizio nessun nodo è attivo, quindi a(v)=0.
+    # Dunque def(v) = tau(v).
+    deficit = {
+        v: threshold[v]
+        for v in G.nodes()
+    }
+
+    # Insieme dei nodi attivi.
+    # In un grafo senza nodi isolati sarà inizialmente vuoto.
+    # Tuttavia, dopo eventuali rimozioni di nodi/archi, possono comparire
+    # nodi con grado 0. In quel caso tau(v)=0, quindi sono già attivi
+    # secondo la condizione majority.
+    active = {
+        v for v in G.nodes()
+        if deficit[v] <= 0
+    }
+
+    # Fissiamo una lista dei nodi per avere iterazioni stabili e riproducibili.
+    nodes = list(G.nodes())
+
+    # Ciclo greedy
+    while True:
+        best_node = None
+        best_score = None
+        best_ratio = None
+        best_key = None
+
+        # Cerchiamo il miglior nodo candidato.
+        # Un nodo è candidato se:
+        # - non è già attivo;
+        # - può essere acquistato senza superare il budget.
+        for u in nodes:
+
+            # Se u è già attivo, non ha senso sceglierlo come seed.
+            if u in active:
+                continue
+
+            cost_u = costs[u]
+
+            # Rispettiamo il vincolo di budget.
+            if current_cost + cost_u > budget:
+                continue
+
+            # Il termine 1 rappresenta l'attivazione certa di u come seed.
+            score = 1.0
+
+            # Ogni vicino non ancora attivo riceve un contributo pari a 1/def(v).
+            # Più il deficit è basso, più il contributo è alto.
+            for v in G.neighbors(u):
+                if v not in active and deficit[v] > 0:
+                    score += 1.0 / deficit[v]
+
+            # Beneficio per unità di costo.
+            ratio = score / cost_u
+
+            # Tie-break:
+            # 1. massimizza ratio;
+            # 2. a parità di ratio, massimizza score;
+            # 3. a parità di score, preferisce nodi con grado maggiore.
+            #
+            # Non inseriamo il nodo u nella chiave, così evitiamo problemi
+            # se le label dei nodi non sono confrontabili tra loro.
+            key = (ratio, score, G.degree(u))
+
+            if best_key is None or key > best_key:
+                best_key = key
+                best_node = u
+                best_score = score
+                best_ratio = ratio
+
+        # Se non esiste nessun candidato acquistabile, l'algoritmo termina.
+        if best_node is None:
+            break
+
+        seeds.add(best_node)
+        current_cost += costs[best_node]
+
+        # Il seed scelto diventa immediatamente attivo.
+        active.add(best_node)
+
+        # Usiamo una coda per propagare le attivazioni successive.
+        # Ogni volta che un nodo diventa attivo, può ridurre il deficit
+        # dei suoi vicini.
+        queue = deque([best_node])
+
+        # -------------------------------
+        # 5. Propagazione della cascata
+        # -------------------------------
+
+        while queue:
+            x = queue.popleft()
+
+            # Ogni vicino non ancora attivo vede ridursi il proprio deficit,
+            # perché x è appena diventato attivo.
+            for v in G.neighbors(x):
+
+                if v in active:
+                    continue
+
+                # Riduciamo il deficit di v di una unità.
+                deficit[v] = max(0, deficit[v] - 1)
+
+                # Se il deficit arriva a 0, v raggiunge la soglia majority
+                # e diventa attivo a sua volta.
+                if deficit[v] == 0:
+                    active.add(v)
+                    queue.append(v)
+
+    if return_info:
+        return {
+            "seeds": seeds,
+            "active": active,
+            "seed_cost": current_cost,
+            "num_seeds": len(seeds),
+            "num_active_internal": len(active),
+            "remaining_budget": budget - current_cost,
+        }
+
+    return seeds
