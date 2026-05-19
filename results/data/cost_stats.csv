@@ -1,3 +1,4 @@
-cost_function,min_cost,max_cost,avg_cost,total_cost
-random,1,10,5.52317028319235,60070
-degree,1,52,3.9689223979404193,43166
+cost_function, min_cost, max_cost, avg_cost          , median_cost, total_cost
+random       ,        1,       10, 5.52317028319235  ,         6.0,      60070
+degree       ,        1,       52, 3.9689223979404193,         3.0,      43166
+sublinear    ,        2,        8, 3.862633321073924 ,         4.0,      42010

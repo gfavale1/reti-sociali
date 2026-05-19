@@ -1,0 +1,6 @@
+algorithm,runtime_seconds
+Greedy f2,61.428314838901215
+Greedy f3,55.92761566667468
+Greedy f1,45.425517788887696
+Threshold-Deficit Greedy,12.23453957777949
+WTSS,9.462319127775523
