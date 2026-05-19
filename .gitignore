@@ -1,4 +1,20 @@
-/docs/relazione
+.venv/
+__pycache__/
 
-.venv
-__pycache__
+*.py[cod]
+
+docs/relazione/**/*.aux
+docs/relazione/**/*.bbl
+docs/relazione/**/*.bcf
+docs/relazione/**/*.blg
+docs/relazione/**/*.fdb_latexmk
+docs/relazione/**/*.fls
+docs/relazione/**/*.log
+docs/relazione/**/*.out
+docs/relazione/**/*.run.xml
+docs/relazione/**/*.synctex.gz
+docs/relazione/**/*.toc
+docs/relazione/**/*.lof
+docs/relazione/**/*.lot
+docs/relazione/**/*.tex
+docs/relazione/**/*.png
