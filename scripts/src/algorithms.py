@@ -320,8 +320,6 @@ def algorithm_3_threshold_deficit_greedy(G, costs, budget, return_info=False):
     # Ciclo greedy
     while True:
         best_node = None
-        best_score = None
-        best_ratio = None
         best_key = None
 
         # Cerchiamo il miglior nodo candidato.
@@ -382,10 +380,7 @@ def algorithm_3_threshold_deficit_greedy(G, costs, budget, return_info=False):
         # dei suoi vicini.
         queue = deque([best_node])
 
-        # -------------------------------
-        # 5. Propagazione della cascata
-        # -------------------------------
-
+        #Propagazione della cascata
         while queue:
             x = queue.popleft()
 

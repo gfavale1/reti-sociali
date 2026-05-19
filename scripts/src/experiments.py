@@ -1,7 +1,7 @@
 import time
 
 from scripts.src.cascade import run_majority_cascade
-from scripts.src.algorithms import algorithm_1_greedy, algorithm_2_wtss, total_cost
+from scripts.src.algorithms import algorithm_1_greedy, algorithm_2_wtss, algorithm_3_threshold_deficit_greedy, total_cost
 from scripts.src.modifiers import remove_x_edges, remove_y_nodes
 
 
@@ -11,10 +11,21 @@ def get_algorithms():
     Per ora sono inclusi solo quelli esplicitamente richiesti dalle slide.
     """
     return {
-        "Greedy f1": lambda G, k, costs: algorithm_1_greedy(G, k, costs, potential_type="f1"),
-        "Greedy f2": lambda G, k, costs: algorithm_1_greedy(G, k, costs, potential_type="f2"),
-        "Greedy f3": lambda G, k, costs: algorithm_1_greedy(G, k, costs, potential_type="f3"),
-        "WTSS": lambda G, k, costs: algorithm_2_wtss(G, k, costs),
+        "Greedy f1": lambda G, k, costs: algorithm_1_greedy(
+            G, k, costs, potential_type="f1"
+        ),
+        "Greedy f2": lambda G, k, costs: algorithm_1_greedy(
+            G, k, costs, potential_type="f2"
+        ),
+        "Greedy f3": lambda G, k, costs: algorithm_1_greedy(
+            G, k, costs, potential_type="f3"
+        ),
+        "WTSS": lambda G, k, costs: algorithm_2_wtss(
+            G, k, costs
+        ),
+        "Threshold-Deficit Greedy": lambda G, k, costs: algorithm_3_threshold_deficit_greedy(
+            G, costs, k
+        ),
     }
 
 
@@ -22,13 +33,21 @@ def run_single_experiment(G, algorithm_name, algorithm_fn, costs, cost_function_
     """
     Esegue un singolo esperimento:
     1. selezione del seed set S;
-    2. simulazione Majority Cascade;
-    3. calcolo delle metriche.
+    2. controllo del vincolo di budget;
+    3. simulazione Majority Cascade;
+    4. calcolo delle metriche.
     """
     start_time = time.perf_counter()
 
     seed_set = algorithm_fn(G, k, costs)
     seed_set_cost = total_cost(seed_set, costs)
+
+    if seed_set_cost > k:
+        raise ValueError(
+            f"Budget violato: {algorithm_name}, "
+            f"cost_function={cost_function_name}, "
+            f"seed_set_cost={seed_set_cost}, budget_k={k}"
+        )
 
     activated_nodes = run_majority_cascade(G, seed_set)
 
@@ -105,11 +124,17 @@ def run_edge_removal_experiment(G, seed_set, original_influence, removal_percent
 
         G_prime = remove_x_edges(G, removed_edges, seed=seed)
 
-        # Per gli archi, i nodi restano gli stessi.
+        # Nel caso della rimozione di archi i nodi restano gli stessi.
         seed_set_prime = set(seed_set) & set(G_prime.nodes())
 
         activated_prime = run_majority_cascade(G_prime, seed_set_prime)
         modified_influence = len(activated_prime)
+
+        absolute_variation = modified_influence - original_influence
+        percentage_variation = (
+            (absolute_variation / original_influence) * 100
+            if original_influence > 0 else 0
+        )
 
         results.append({
             "removal_type": "edges",
@@ -119,11 +144,8 @@ def run_edge_removal_experiment(G, seed_set, original_influence, removal_percent
             "modified_influence": modified_influence,
             "original_ratio": original_influence / G.number_of_nodes(),
             "modified_ratio": modified_influence / G_prime.number_of_nodes(),
-            "absolute_loss": original_influence - modified_influence,
-            "percentage_loss": (
-                ((original_influence - modified_influence) / original_influence) * 100
-                if original_influence > 0 else 0
-            ),
+            "absolute_variation": absolute_variation,
+            "percentage_variation": percentage_variation,
         })
 
     return results
@@ -150,6 +172,12 @@ def run_node_removal_experiment(G, seed_set, original_influence, removal_percent
         activated_prime = run_majority_cascade(G_prime, seed_set_prime)
         modified_influence = len(activated_prime)
 
+        absolute_variation = modified_influence - original_influence
+        percentage_variation = (
+            (absolute_variation / original_influence) * 100
+            if original_influence > 0 else 0
+        )
+
         results.append({
             "removal_type": "nodes",
             "removal_percentage": p,
@@ -159,11 +187,8 @@ def run_node_removal_experiment(G, seed_set, original_influence, removal_percent
             "modified_influence": modified_influence,
             "original_ratio": original_influence / G.number_of_nodes(),
             "modified_ratio": modified_influence / G_prime.number_of_nodes(),
-            "absolute_loss": original_influence - modified_influence,
-            "percentage_loss": (
-                ((original_influence - modified_influence) / original_influence) * 100
-                if original_influence > 0 else 0
-            ),
+            "absolute_variation": absolute_variation,
+            "percentage_variation": percentage_variation,
         })
 
     return results

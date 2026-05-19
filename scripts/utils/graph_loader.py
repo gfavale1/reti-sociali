@@ -6,7 +6,7 @@ def load_graph(file_path):
     """
     Carica il dataset SNAP e lo prepara per il Majority Cascade Model.
 
-    Il dataset p2p-Gnutella04 è originariamente diretto, ma viene trattato
+    Il dataset è originariamente diretto, ma viene trattato
     come non orientato perché il modello Majority Cascade usato nelle slide
     è definito tramite vicinato N(v) e grado d(v).
     """
